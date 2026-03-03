@@ -39,8 +39,8 @@ export default function Testimonials() {
   const deleteMutation = trpc.testimonials.delete.useMutation({ onSuccess: () => { utils.testimonials.list.invalidate(); toast.success("Testimonial deleted"); } });
 
   const allTestimonials = [
-    ...defaultTestimonials.filter((t) => !filterIndustry || t.industry === filterIndustry),
-    ...(dbTestimonials ?? []).filter((t) => !filterIndustry || t.industry === filterIndustry).map((t) => ({
+    ...defaultTestimonials.filter((t) => !filterIndustry || filterIndustry === "all" || t.industry === filterIndustry),
+    ...(dbTestimonials ?? []).filter((t) => !filterIndustry || filterIndustry === "all" || t.industry === filterIndustry).map((t) => ({
       id: t.id,
       clientName: t.clientName,
       company: t.company ?? "",
@@ -92,7 +92,7 @@ export default function Testimonials() {
             <SelectValue placeholder="All Industries" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Industries</SelectItem>
+            <SelectItem value="all">All Industries</SelectItem>
             {INDUSTRIES.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
           </SelectContent>
         </Select>

@@ -31,7 +31,7 @@ export default function Leads() {
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", company: "", industry: "", title: "", linkedinUrl: "", notes: "" });
 
   const utils = trpc.useUtils();
-  const { data, isLoading } = trpc.leads.list.useQuery({ search: search || undefined, segment: segment || undefined, status: status || undefined, limit: 50 });
+  const { data, isLoading } = trpc.leads.list.useQuery({ search: search || undefined, segment: (segment && segment !== "all") ? segment : undefined, status: (status && status !== "all") ? status : undefined, limit: 50 });
   const createMutation = trpc.leads.create.useMutation({ onSuccess: () => { utils.leads.list.invalidate(); setShowCreate(false); setForm({ firstName: "", lastName: "", email: "", phone: "", company: "", industry: "", title: "", linkedinUrl: "", notes: "" }); toast.success("Lead created"); } });
   const deleteMutation = trpc.leads.delete.useMutation({ onSuccess: () => { utils.leads.list.invalidate(); toast.success("Lead deleted"); } });
   const verifyMutation = trpc.leads.verify.useMutation({ onSuccess: (d) => { utils.leads.list.invalidate(); toast.success(`Verification: ${d.status}`); } });
@@ -109,7 +109,7 @@ export default function Leads() {
             <SelectValue placeholder="Segment" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Segments</SelectItem>
+            <SelectItem value="all">All Segments</SelectItem>
             <SelectItem value="hot">Hot</SelectItem>
             <SelectItem value="warm">Warm</SelectItem>
             <SelectItem value="cold">Cold</SelectItem>
@@ -121,7 +121,7 @@ export default function Leads() {
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Status</SelectItem>
+            <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="new">New</SelectItem>
             <SelectItem value="contacted">Contacted</SelectItem>
             <SelectItem value="qualified">Qualified</SelectItem>

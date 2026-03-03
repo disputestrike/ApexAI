@@ -32,7 +32,7 @@ export default function Messages() {
   const [sendForm, setSendForm] = useState({ leadId: "", channel: "sms" as "sms" | "email" | "voice" | "social", subject: "", body: "" });
 
   const utils = trpc.useUtils();
-  const { data: messages, isLoading } = trpc.messages.list.useQuery({ channel: channel || undefined, limit: 50 });
+  const { data: messages, isLoading } = trpc.messages.list.useQuery({ channel: (channel && channel !== "all") ? channel as "sms" | "email" | "voice" | "social" : undefined, limit: 50 });
   const { data: leadsData } = trpc.leads.list.useQuery({ limit: 100 });
   const sendMutation = trpc.messages.send.useMutation({
     onSuccess: () => { utils.messages.list.invalidate(); setShowSend(false); setSendForm({ leadId: "", channel: "sms", subject: "", body: "" }); toast.success("Message sent"); },
@@ -85,7 +85,7 @@ export default function Messages() {
             <SelectValue placeholder="All Channels" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Channels</SelectItem>
+            <SelectItem value="all">All Channels</SelectItem>
             <SelectItem value="sms">SMS</SelectItem>
             <SelectItem value="email">Email</SelectItem>
             <SelectItem value="social">Social</SelectItem>
