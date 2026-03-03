@@ -5,31 +5,70 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
+import Dashboard from "./pages/Dashboard";
+import Leads from "./pages/Leads";
+import Campaigns from "./pages/Campaigns";
+import CampaignDetail from "./pages/CampaignDetail";
+import VoiceAI from "./pages/VoiceAI";
+import Messages from "./pages/Messages";
+import Templates from "./pages/Templates";
+import Analytics from "./pages/Analytics";
+import Testimonials from "./pages/Testimonials";
+import Onboarding from "./pages/Onboarding";
+import Admin from "./pages/Admin";
+import AppLayout from "./components/AppLayout";
 
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
+      {/* Public landing page */}
+      <Route path="/" component={Home} />
+
+      {/* App routes — wrapped in AppLayout */}
+      <Route path="/dashboard">
+        <AppLayout><Dashboard /></AppLayout>
+      </Route>
+      <Route path="/leads">
+        <AppLayout><Leads /></AppLayout>
+      </Route>
+      <Route path="/campaigns">
+        <AppLayout><Campaigns /></AppLayout>
+      </Route>
+      <Route path="/campaigns/:id">
+        <AppLayout><CampaignDetail /></AppLayout>
+      </Route>
+      <Route path="/voice-ai">
+        <AppLayout><VoiceAI /></AppLayout>
+      </Route>
+      <Route path="/messages">
+        <AppLayout><Messages /></AppLayout>
+      </Route>
+      <Route path="/templates">
+        <AppLayout><Templates /></AppLayout>
+      </Route>
+      <Route path="/analytics">
+        <AppLayout><Analytics /></AppLayout>
+      </Route>
+      <Route path="/testimonials">
+        <AppLayout><Testimonials /></AppLayout>
+      </Route>
+      <Route path="/onboarding">
+        <AppLayout><Onboarding /></AppLayout>
+      </Route>
+      <Route path="/admin">
+        <AppLayout><Admin /></AppLayout>
+      </Route>
+
+      <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
-
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider defaultTheme="dark">
         <TooltipProvider>
           <Toaster />
           <Router />
