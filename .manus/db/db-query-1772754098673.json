@@ -1,0 +1,22 @@
+{
+  "query": "\nSELECT id, clientName, industry, status FROM onboardings ORDER BY id;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2myJVED8qg2m58R.8e9796c136e4 --database XyLNSc4uZgXX4YWoktjfzB --execute \nSELECT id, clientName, industry, status FROM onboardings ORDER BY id;\n",
+  "rows": [
+    {
+      "id": "1",
+      "clientName": "Onboarding Test Client",
+      "industry": "HVAC",
+      "status": "in_progress"
+    },
+    {
+      "id": "2",
+      "clientName": "Step Test Client",
+      "industry": "Roofing",
+      "status": "in_progress"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tclientName\tindustry\tstatus\n1\tOnboarding Test Client\tHVAC\tin_progress\n2\tStep Test Client\tRoofing\tin_progress\n",
+  "stderr": "",
+  "execution_time_ms": 347
+}

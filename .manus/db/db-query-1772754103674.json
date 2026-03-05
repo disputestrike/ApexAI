@@ -1,0 +1,42 @@
+{
+  "query": "\nSELECT 'leads' as tbl, COUNT(*) as cnt FROM leads\nUNION ALL SELECT 'campaigns', COUNT(*) FROM campaigns\nUNION ALL SELECT 'templates', COUNT(*) FROM templates\nUNION ALL SELECT 'onboardings', COUNT(*) FROM onboardings\nUNION ALL SELECT 'testimonials', COUNT(*) FROM testimonials\nUNION ALL SELECT 'call_recordings', COUNT(*) FROM call_recordings\nUNION ALL SELECT 'messages', COUNT(*) FROM messages\nUNION ALL SELECT 'activity_logs', COUNT(*) FROM activity_logs;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2myJVED8qg2m58R.8e9796c136e4 --database XyLNSc4uZgXX4YWoktjfzB --execute \nSELECT 'leads' as tbl, COUNT(*) as cnt FROM leads\nUNION ALL SELECT 'campaigns', COUNT(*) FROM campaigns\nUNION ALL SELECT 'templates', COUNT(*) FROM templates\nUNION ALL SELECT 'onboardings', COUNT(*) FROM onboardings\nUNION ALL SELECT 'testimonials', COUNT(*) FROM testimonials\nUNION ALL SELECT 'call_recordings', COUNT(*) FROM call_recordings\nUNION ALL SELECT 'messages', COUNT(*) FROM messages\nUNION ALL SELECT 'activity_logs', COUNT(*) FROM activity_logs;\n",
+  "rows": [
+    {
+      "tbl": "campaigns",
+      "cnt": "2"
+    },
+    {
+      "tbl": "leads",
+      "cnt": "8"
+    },
+    {
+      "tbl": "onboardings",
+      "cnt": "2"
+    },
+    {
+      "tbl": "templates",
+      "cnt": "2"
+    },
+    {
+      "tbl": "testimonials",
+      "cnt": "1"
+    },
+    {
+      "tbl": "activity_logs",
+      "cnt": "62"
+    },
+    {
+      "tbl": "messages",
+      "cnt": "0"
+    },
+    {
+      "tbl": "call_recordings",
+      "cnt": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "tbl\tcnt\ncampaigns\t2\nleads\t8\nonboardings\t2\ntemplates\t2\ntestimonials\t1\nactivity_logs\t62\nmessages\t0\ncall_recordings\t1\n",
+  "stderr": "",
+  "execution_time_ms": 343
+}

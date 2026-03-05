@@ -78,3 +78,16 @@
 - [x] TypeScript check: 0 errors
 - [x] Final integration check
 - [x] Checkpoint save
+
+## Twilio Integration
+
+- [ ] Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER secrets
+- [ ] Install twilio npm package
+- [ ] Build backend: real SMS send via Twilio REST API
+- [ ] Build backend: real outbound voice call via Twilio TwiML
+- [ ] Add Twilio webhook endpoints for call status callbacks
+- [ ] Add Twilio webhook endpoint for SMS status callbacks
+- [ ] Update Voice AI page to show real call status (initiated/ringing/in-progress/completed)
+- [ ] Update Messages page to show real SMS delivery status
+- [ ] Write vitest tests for Twilio procedures
+- [ ] Save checkpoint
