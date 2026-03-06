@@ -91,3 +91,25 @@
 - [ ] Update Messages page to show real SMS delivery status
 - [ ] Write vitest tests for Twilio procedures
 - [ ] Save checkpoint
+
+## Voice AI Script Generator Enhancements
+- [ ] Add company name input to script generator
+- [ ] Add AI caller name input (the name the AI uses when calling)
+- [ ] Add state/area/city input for localized scripts
+- [ ] Add phone number pool selection
+- [ ] Add tone selector (professional, friendly, urgent, consultative)
+- [ ] Add call objective selector (appointment, qualification, follow-up, re-engagement)
+- [ ] Add product/service description field
+- [ ] Add key value propositions field
+- [ ] Add objection handling style selector
+- [ ] Make generated script replace all placeholders with real values
+
+## Lead Import
+- [ ] Add Excel/CSV import to Leads page with column mapping UI
+- [ ] Parse uploaded file and preview rows before import
+- [ ] Map columns to lead fields (firstName, lastName, email, phone, company, etc.)
+- [ ] Bulk create leads with auto-scoring after import
+- [ ] Show import summary (X imported, Y skipped/duplicates)
+
+## GitHub Push
+- [ ] Push all code to https://github.com/disputestrike/ApexAI

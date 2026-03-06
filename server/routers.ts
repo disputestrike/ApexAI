@@ -297,12 +297,59 @@ const voiceAIRouter = router({
     }),
 
   generateScript: protectedProcedure
-    .input(z.object({ industry: z.string(), goal: z.string(), tone: z.string().optional() }))
+    .input(z.object({
+      industry: z.string(),
+      goal: z.string(),
+      tone: z.string().optional(),
+      companyName: z.string().optional(),
+      callerName: z.string().optional(),
+      stateOrCity: z.string().optional(),
+      phoneNumber: z.string().optional(),
+      productDescription: z.string().optional(),
+      valuePropositions: z.string().optional(),
+      objectionStyle: z.enum(["soft", "direct", "empathetic", "data-driven"]).optional(),
+      callObjective: z.enum(["appointment", "qualification", "follow-up", "re-engagement"]).optional(),
+    }))
     .mutation(async ({ input }) => {
+      const callerName = input.callerName || "Alex";
+      const companyName = input.companyName || "our company";
+      const stateOrCity = input.stateOrCity || "your area";
+      const tone = input.tone || "professional and friendly";
+      const callObjective = input.callObjective || "appointment";
+      const objectionStyle = input.objectionStyle || "empathetic";
+      const productDesc = input.productDescription ? `Product/Service: ${input.productDescription}.` : "";
+      const valueProps = input.valuePropositions ? `Key value propositions: ${input.valuePropositions}.` : "";
+
+      const systemPrompt = `You are an expert sales script writer specializing in AI voice call scripts. 
+Create a complete, fully personalized, human-sounding call script with NO placeholder brackets like [Name] or [Company]. 
+Use the exact names and details provided. The script should sound natural, conversational, and human — not robotic.
+Format the script with clear sections: Opening, Value Proposition, Qualification Questions, Objection Handling, and Closing/Appointment Setting.
+Each section should have the AI caller's exact words to say.`;
+
+      const userPrompt = `Write a complete AI voice call script with these exact details:
+- AI Caller Name: ${callerName} (this is the name the AI will say when introducing itself)
+- Company Name: ${companyName} (use this exact company name throughout the script)
+- Industry: ${input.industry}
+- Target Location: ${stateOrCity}
+- Call Goal: ${callObjective === "appointment" ? "Book an appointment/consultation" : callObjective === "qualification" ? "Qualify the lead" : callObjective === "follow-up" ? "Follow up on previous contact" : "Re-engage a cold lead"}
+- Tone: ${tone}
+- Objection Handling Style: ${objectionStyle}
+${productDesc}
+${valueProps}
+
+IMPORTANT: 
+1. Use "${callerName}" as the caller name throughout — never write [AI Name] or [Caller Name]
+2. Use "${companyName}" as the company name — never write [Company Name]
+3. Reference "${stateOrCity}" when mentioning location — never write [Location]
+4. Write the prospect's name as "[Prospect Name]" ONLY (this is the one placeholder allowed — it gets replaced per call)
+5. Make it sound completely human and natural
+6. Include specific objection responses for the ${input.industry} industry
+7. End with a clear appointment booking close`;
+
       const response = await invokeLLM({
         messages: [
-          { role: "system", content: "You are an expert sales script writer. Create compelling, natural-sounding AI call scripts for outbound sales." },
-          { role: "user", content: `Write a complete AI voice call script for the ${input.industry} industry. Goal: ${input.goal}. Tone: ${input.tone ?? "professional and friendly"}. Include: opening, value proposition, objection handling, and appointment setting close.` },
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
         ],
       });
       return { script: response.choices[0].message.content as string };
