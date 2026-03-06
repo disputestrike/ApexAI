@@ -1,0 +1,16 @@
+node_modules
+dist
+client/dist
+.git
+.gitignore
+.env
+.env.*
+*.log
+.DS_Store
+.manus
+.manus-logs
+.webdev
+coverage
+.nyc_output
+*.md
+!README.md
