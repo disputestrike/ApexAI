@@ -1,4 +1,22 @@
-CREATE TABLE `activity_logs` (
+-- ApexAI Railway MySQL Migration
+-- Run this in Railway MySQL > Database > Data tab (or via MySQL client)
+-- Safe to run multiple times (uses IF NOT EXISTS)
+
+CREATE TABLE IF NOT EXISTS `users` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`openId` varchar(64) NOT NULL,
+	`name` text,
+	`email` varchar(320),
+	`loginMethod` varchar(64),
+	`role` enum('user','admin') NOT NULL DEFAULT 'user',
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	`lastSignedIn` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `users_id` PRIMARY KEY(`id`),
+	CONSTRAINT `users_openId_unique` UNIQUE(`openId`)
+);
+
+CREATE TABLE IF NOT EXISTS `activity_logs` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`userId` int,
 	`entityType` varchar(50) NOT NULL,
@@ -6,66 +24,62 @@ CREATE TABLE `activity_logs` (
 	`action` varchar(100) NOT NULL,
 	`description` text,
 	`metadata` text,
+	`ipAddress` varchar(45),
 	`createdAt` timestamp NOT NULL DEFAULT (now()),
 	CONSTRAINT `activity_logs_id` PRIMARY KEY(`id`)
 );
---> statement-breakpoint
-CREATE TABLE `analytics_snapshots` (
+
+CREATE TABLE IF NOT EXISTS `analytics_snapshots` (
 	`id` int AUTO_INCREMENT NOT NULL,
-	`campaignId` int,
-	`date` timestamp NOT NULL DEFAULT (now()),
-	`totalContacts` int DEFAULT 0,
-	`totalSent` int DEFAULT 0,
-	`totalResponses` int DEFAULT 0,
-	`totalScheduled` int DEFAULT 0,
-	`totalShowed` int DEFAULT 0,
-	`totalConverted` int DEFAULT 0,
-	`responseRate` float DEFAULT 0,
-	`scheduleRate` float DEFAULT 0,
-	`showRate` float DEFAULT 0,
-	`conversionRate` float DEFAULT 0,
-	`revenueGenerated` float DEFAULT 0,
-	`costPerLead` float DEFAULT 0,
-	`roi` float DEFAULT 0,
-	`channel` enum('sms','email','voice','social','all') DEFAULT 'all',
+	`date` timestamp NOT NULL,
+	`totalLeads` int NOT NULL DEFAULT 0,
+	`newLeads` int NOT NULL DEFAULT 0,
+	`contactedLeads` int NOT NULL DEFAULT 0,
+	`qualifiedLeads` int NOT NULL DEFAULT 0,
+	`convertedLeads` int NOT NULL DEFAULT 0,
+	`totalCalls` int NOT NULL DEFAULT 0,
+	`answeredCalls` int NOT NULL DEFAULT 0,
+	`totalMessages` int NOT NULL DEFAULT 0,
+	`deliveredMessages` int NOT NULL DEFAULT 0,
+	`totalCampaigns` int NOT NULL DEFAULT 0,
+	`activeCampaigns` int NOT NULL DEFAULT 0,
+	`appointmentsBooked` int NOT NULL DEFAULT 0,
+	`revenueGenerated` float NOT NULL DEFAULT 0,
 	`createdAt` timestamp NOT NULL DEFAULT (now()),
 	CONSTRAINT `analytics_snapshots_id` PRIMARY KEY(`id`)
 );
---> statement-breakpoint
-CREATE TABLE `call_recordings` (
+
+CREATE TABLE IF NOT EXISTS `call_recordings` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`leadId` int NOT NULL,
 	`campaignId` int,
-	`messageId` int,
-	`duration` int DEFAULT 0,
-	`status` enum('completed','no_answer','voicemail','failed','busy') NOT NULL DEFAULT 'completed',
-	`outcome` enum('interested','not_interested','callback','scheduled','voicemail','no_answer') NOT NULL DEFAULT 'no_answer',
-	`transcript` text,
+	`duration` int,
+	`status` enum('initiated','ringing','answered','completed','failed','no_answer','busy','voicemail') NOT NULL DEFAULT 'initiated',
 	`recordingUrl` varchar(1000),
-	`aiSummary` text,
+	`transcription` text,
 	`sentiment` enum('positive','neutral','negative'),
-	`scheduledAppointment` boolean DEFAULT false,
-	`calledAt` timestamp NOT NULL DEFAULT (now()),
+	`outcome` enum('appointment_booked','callback_requested','not_interested','voicemail','no_answer','follow_up'),
+	`notes` text,
+	`callerName` varchar(200),
+	`phoneNumber` varchar(30),
 	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
 	CONSTRAINT `call_recordings_id` PRIMARY KEY(`id`)
 );
---> statement-breakpoint
-CREATE TABLE `campaign_contacts` (
+
+CREATE TABLE IF NOT EXISTS `campaign_contacts` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`campaignId` int NOT NULL,
 	`leadId` int NOT NULL,
-	`status` enum('pending','contacted','responded','scheduled','showed','converted','failed','opted_out') NOT NULL DEFAULT 'pending',
-	`channel` enum('sms','email','voice','social'),
+	`status` enum('pending','contacted','responded','converted','opted_out','failed') NOT NULL DEFAULT 'pending',
+	`attempts` int NOT NULL DEFAULT 0,
 	`lastContactedAt` timestamp,
 	`nextContactAt` timestamp,
-	`attempts` int DEFAULT 0,
-	`notes` text,
 	`createdAt` timestamp NOT NULL DEFAULT (now()),
-	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
 	CONSTRAINT `campaign_contacts_id` PRIMARY KEY(`id`)
 );
---> statement-breakpoint
-CREATE TABLE `campaigns` (
+
+CREATE TABLE IF NOT EXISTS `campaigns` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`name` varchar(200) NOT NULL,
 	`description` text,
@@ -89,8 +103,8 @@ CREATE TABLE `campaigns` (
 	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
 	CONSTRAINT `campaigns_id` PRIMARY KEY(`id`)
 );
---> statement-breakpoint
-CREATE TABLE `leads` (
+
+CREATE TABLE IF NOT EXISTS `leads` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`firstName` varchar(100) NOT NULL,
 	`lastName` varchar(100) NOT NULL,
@@ -116,8 +130,8 @@ CREATE TABLE `leads` (
 	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
 	CONSTRAINT `leads_id` PRIMARY KEY(`id`)
 );
---> statement-breakpoint
-CREATE TABLE `messages` (
+
+CREATE TABLE IF NOT EXISTS `messages` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`campaignId` int,
 	`leadId` int NOT NULL,
@@ -135,8 +149,8 @@ CREATE TABLE `messages` (
 	`createdAt` timestamp NOT NULL DEFAULT (now()),
 	CONSTRAINT `messages_id` PRIMARY KEY(`id`)
 );
---> statement-breakpoint
-CREATE TABLE `onboardings` (
+
+CREATE TABLE IF NOT EXISTS `onboardings` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`userId` int NOT NULL,
 	`clientName` varchar(200) NOT NULL,
@@ -151,8 +165,8 @@ CREATE TABLE `onboardings` (
 	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
 	CONSTRAINT `onboardings_id` PRIMARY KEY(`id`)
 );
---> statement-breakpoint
-CREATE TABLE `templates` (
+
+CREATE TABLE IF NOT EXISTS `templates` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`name` varchar(200) NOT NULL,
 	`channel` enum('sms','email','voice','social') NOT NULL,
@@ -165,8 +179,8 @@ CREATE TABLE `templates` (
 	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
 	CONSTRAINT `templates_id` PRIMARY KEY(`id`)
 );
---> statement-breakpoint
-CREATE TABLE `testimonials` (
+
+CREATE TABLE IF NOT EXISTS `testimonials` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`clientName` varchar(200) NOT NULL,
 	`industry` varchar(100) NOT NULL,
@@ -183,4 +197,22 @@ CREATE TABLE `testimonials` (
 	`createdAt` timestamp NOT NULL DEFAULT (now()),
 	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
 	CONSTRAINT `testimonials_id` PRIMARY KEY(`id`)
+);
+
+CREATE TABLE IF NOT EXISTS `system_config` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`key` varchar(100) NOT NULL,
+	`value` text NOT NULL,
+	`category` varchar(50) NOT NULL DEFAULT 'general',
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `system_config_id` PRIMARY KEY(`id`),
+	CONSTRAINT `system_config_key_unique` UNIQUE(`key`)
+);
+
+-- Drizzle migrations journal table (required for auto-migration to work)
+CREATE TABLE IF NOT EXISTS `__drizzle_migrations` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`hash` text NOT NULL,
+	`created_at` bigint,
+	CONSTRAINT `__drizzle_migrations_id` PRIMARY KEY(`id`)
 );
