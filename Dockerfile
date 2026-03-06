@@ -16,7 +16,9 @@ RUN pnpm install --frozen-lockfile
 # Copy source code
 COPY . .
 
-# Build the application (Vite frontend + esbuild backend)
+# Build the application:
+#   - Vite outputs frontend to dist/public/
+#   - esbuild outputs server bundle to dist/index.js
 RUN pnpm build
 
 # ── Stage 2: Production ──────────────────────────────────────────────────────
@@ -33,19 +35,20 @@ COPY patches/ ./patches/
 # Install production dependencies only
 RUN pnpm install --frozen-lockfile --prod
 
-# Copy built artifacts from builder stage
+# Copy the entire dist/ folder from builder:
+#   dist/index.js       → compiled server bundle
+#   dist/public/        → compiled frontend (Vite output)
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/client/dist ./client/dist
 
 # Copy drizzle schema for migrations (needed at runtime)
 COPY drizzle/ ./drizzle/
 COPY drizzle.config.ts ./
 
-# Expose the port Railway will assign
+# Expose the default port (Railway overrides via PORT env var)
 EXPOSE 3000
 
 # Set production environment
 ENV NODE_ENV=production
 
-# Start the server
+# Start the server — reads PORT from Railway environment automatically
 CMD ["node", "dist/index.js"]
