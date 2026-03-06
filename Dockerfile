@@ -44,9 +44,6 @@ COPY --from=builder /app/dist ./dist
 COPY drizzle/ ./drizzle/
 COPY drizzle.config.ts ./
 
-# Expose the default port (Railway overrides via PORT env var)
-EXPOSE 3000
-
 # Set production environment
 ENV NODE_ENV=production
 
