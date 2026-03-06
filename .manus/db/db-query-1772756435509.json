@@ -1,0 +1,9 @@
+{
+  "query": "\nDELETE t1 FROM templates t1\nINNER JOIN templates t2\nWHERE t1.id < t2.id AND t1.name = t2.name AND t1.channel = t2.channel;\n\nDELETE t1 FROM campaigns t1\nINNER JOIN campaigns t2\nWHERE t1.id < t2.id AND t1.name = t2.name;\n\nDELETE t1 FROM onboardings t1\nINNER JOIN onboardings t2\nWHERE t1.id < t2.id AND t1.clientName = t2.clientName;\n\nDELETE t1 FROM testimonials t1\nINNER JOIN testimonials t2\nWHERE t1.id < t2.id AND t1.clientName = t2.clientName;\n\nDELETE t1 FROM leads t1\nINNER JOIN leads t2\nWHERE t1.id < t2.id AND t1.email = t2.email AND t1.email IS NOT NULL;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2myJVED8qg2m58R.8e9796c136e4 --database XyLNSc4uZgXX4YWoktjfzB --execute \nDELETE t1 FROM templates t1\nINNER JOIN templates t2\nWHERE t1.id < t2.id AND t1.name = t2.name AND t1.channel = t2.channel;\n\nDELETE t1 FROM campaigns t1\nINNER JOIN campaigns t2\nWHERE t1.id < t2.id AND t1.name = t2.name;\n\nDELETE t1 FROM onboardings t1\nINNER JOIN onboardings t2\nWHERE t1.id < t2.id AND t1.clientName = t2.clientName;\n\nDELETE t1 FROM testimonials t1\nINNER JOIN testimonials t2\nWHERE t1.id < t2.id AND t1.clientName = t2.clientName;\n\nDELETE t1 FROM leads t1\nINNER JOIN leads t2\nWHERE t1.id < t2.id AND t1.email = t2.email AND t1.email IS NOT NULL;\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 573
+}

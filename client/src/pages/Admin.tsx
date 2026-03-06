@@ -4,16 +4,54 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Activity, AlertTriangle, BarChart3, Database, Settings, Shield, Users } from "lucide-react";
+import { Activity, AlertTriangle, BarChart3, CheckCircle, Database, Pencil, Save, Settings, Shield, Users, X } from "lucide-react";
 import { useLocation } from "wouter";
+
+const DEFAULT_CONFIG = [
+  { key: "voice_model", value: "Neural TTS v3", category: "voice", label: "Voice Model" },
+  { key: "default_language", value: "English (US)", category: "voice", label: "Default Language" },
+  { key: "call_recording", value: "enabled", category: "voice", label: "Call Recording" },
+  { key: "max_concurrent_calls", value: "50", category: "voice", label: "Max Concurrent Calls" },
+  { key: "daily_sms_limit", value: "500", category: "limits", label: "Daily SMS Limit (per user)" },
+  { key: "daily_email_limit", value: "1000", category: "limits", label: "Daily Email Limit (per user)" },
+  { key: "daily_call_limit", value: "200", category: "limits", label: "Daily Call Limit (per user)" },
+  { key: "rate_limiting", value: "active", category: "limits", label: "Rate Limiting" },
+  { key: "twilio_status", value: "connected", category: "integrations", label: "Twilio (Voice/SMS)" },
+  { key: "sendgrid_status", value: "connected", category: "integrations", label: "SendGrid (Email)" },
+  { key: "linkedin_api_status", value: "pending", category: "integrations", label: "LinkedIn API" },
+  { key: "crm_webhook", value: "not_configured", category: "integrations", label: "CRM Webhook URL" },
+  { key: "session_timeout", value: "24h", category: "security", label: "Session Timeout" },
+  { key: "two_factor_auth", value: "optional", category: "security", label: "2FA" },
+  { key: "data_encryption", value: "AES-256", category: "security", label: "Data Encryption" },
+];
+
+const CATEGORY_ICONS: Record<string, React.ElementType> = {
+  voice: Settings,
+  limits: AlertTriangle,
+  integrations: Database,
+  security: Shield,
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  voice: "AI Voice Settings",
+  limits: "Outreach Limits",
+  integrations: "Integrations",
+  security: "Security",
+};
 
 export default function Admin() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const [tab, setTab] = useState("users");
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  const utils = trpc.useUtils();
 
   // Redirect non-admins
   if (user && user.role !== "admin") {
@@ -23,16 +61,42 @@ export default function Admin() {
 
   const { data: users } = trpc.admin.users.useQuery();
   const { data: stats } = trpc.admin.systemStats.useQuery();
-  const { data: logs } = trpc.admin.activityLogs.useQuery({ limit: 50 });
+  const { data: logs } = trpc.admin.activityLogs.useQuery({ limit: 100 });
   const { data: campaigns } = trpc.campaigns.list.useQuery({});
+  const { data: savedConfig } = trpc.admin.getConfig.useQuery();
 
   const promoteUserMutation = trpc.admin.updateUserRole.useMutation({
-    onSuccess: () => { toast.success("User role updated"); },
+    onSuccess: () => { utils.admin.users.invalidate(); toast.success("User role updated"); },
     onError: (e: { message: string }) => toast.error(e.message),
   });
 
+  const setConfigMutation = trpc.admin.setConfig.useMutation({
+    onSuccess: () => { utils.admin.getConfig.invalidate(); setEditingKey(null); toast.success("Configuration saved"); },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  // Merge saved config with defaults
+  const configMap: Record<string, string> = {};
+  DEFAULT_CONFIG.forEach((d) => { configMap[d.key] = d.value; });
+  (savedConfig ?? []).forEach((c) => { configMap[c.key] = c.value; });
+
+  // Group config by category
+  const configByCategory: Record<string, typeof DEFAULT_CONFIG> = {};
+  DEFAULT_CONFIG.forEach((item) => {
+    if (!configByCategory[item.category]) configByCategory[item.category] = [];
+    configByCategory[item.category].push(item);
+  });
+
+  const getStatusColor = (value: string) => {
+    const v = value.toLowerCase();
+    if (v === "enabled" || v === "active" || v === "connected") return "text-green-400";
+    if (v === "pending" || v === "optional") return "text-orange-400";
+    if (v === "not_configured" || v === "disabled") return "text-red-400";
+    return "";
+  };
+
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-6 space-y-5 max-w-7xl mx-auto">
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-lg bg-red-500/10 flex items-center justify-center">
           <Shield className="w-5 h-5 text-red-400" />
@@ -49,7 +113,7 @@ export default function Admin() {
           { label: "Total Users", value: stats?.totalUsers ?? 0, icon: Users, color: "text-blue-400", bg: "bg-blue-500/10" },
           { label: "Total Campaigns", value: stats?.totalCampaigns ?? 0, icon: BarChart3, color: "text-green-400", bg: "bg-green-500/10" },
           { label: "Total Leads", value: stats?.totalLeads ?? 0, icon: Database, color: "text-orange-400", bg: "bg-orange-500/10" },
-          { label: "Admin Users", value: stats?.adminUsers ?? 0, icon: Activity, color: "text-purple-400", bg: "bg-purple-500/10" },
+          { label: "Admin Users", value: stats?.adminUsers ?? 0, icon: Shield, color: "text-purple-400", bg: "bg-purple-500/10" },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <Card key={label} className="bg-card border-border">
             <CardContent className="p-4">
@@ -84,7 +148,7 @@ export default function Admin() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      {["User", "Email", "Login Method", "Role", "Joined", "Actions"].map((h) => (
+                      {["User", "Email", "Login Method", "Role", "Joined", "Last Sign In", "Actions"].map((h) => (
                         <th key={h} className="text-left px-3 py-2 text-xs text-muted-foreground font-medium">{h}</th>
                       ))}
                     </tr>
@@ -100,16 +164,15 @@ export default function Admin() {
                             <span className="font-medium">{u.name ?? "—"}</span>
                           </div>
                         </td>
-                        <td className="px-3 py-2 text-muted-foreground">{u.email ?? "—"}</td>
-                        <td className="px-3 py-2 text-muted-foreground capitalize">{u.loginMethod ?? "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground text-xs">{u.email ?? "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground capitalize text-xs">{u.loginMethod ?? "—"}</td>
                         <td className="px-3 py-2">
                           <Badge variant="outline" className={`text-xs capitalize ${u.role === "admin" ? "text-red-400 border-red-500/30 bg-red-500/5" : "text-muted-foreground"}`}>
                             {u.role}
                           </Badge>
                         </td>
-                        <td className="px-3 py-2 text-muted-foreground text-xs">
-                          {new Date(u.createdAt).toLocaleDateString()}
-                        </td>
+                        <td className="px-3 py-2 text-muted-foreground text-xs">{new Date(u.createdAt).toLocaleDateString()}</td>
+                        <td className="px-3 py-2 text-muted-foreground text-xs">{new Date(u.lastSignedIn).toLocaleDateString()}</td>
                         <td className="px-3 py-2">
                           {u.id !== user?.id && (
                             <Select
@@ -124,6 +187,9 @@ export default function Admin() {
                                 <SelectItem value="admin">Admin</SelectItem>
                               </SelectContent>
                             </Select>
+                          )}
+                          {u.id === user?.id && (
+                            <span className="text-xs text-muted-foreground italic">You</span>
                           )}
                         </td>
                       </tr>
@@ -151,7 +217,7 @@ export default function Admin() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      {["Campaign", "Channels", "Status", "Contacts", "Sent", "Responses", "Response %"].map((h) => (
+                      {["Campaign", "Channels", "Status", "Contacts", "Sent", "Responses", "Scheduled", "Showed", "Response %"].map((h) => (
                         <th key={h} className="text-left px-3 py-2 text-xs text-muted-foreground font-medium">{h}</th>
                       ))}
                     </tr>
@@ -159,25 +225,31 @@ export default function Admin() {
                   <tbody>
                     {(campaigns?.campaigns ?? []).map((c) => {
                       const responseRate = c.sentCount ? Math.round(((c.responseCount ?? 0) / c.sentCount) * 100) : 0;
-                      const channels: string[] = JSON.parse(c.channels ?? "[]");
+                      const channels: string[] = (() => { try { return JSON.parse(c.channels ?? "[]"); } catch { return []; } })();
+                      const statusColors: Record<string, string> = {
+                        active: "text-green-400 border-green-500/30",
+                        draft: "text-muted-foreground",
+                        paused: "text-orange-400 border-orange-500/30",
+                        completed: "text-blue-400 border-blue-500/30",
+                      };
                       return (
                         <tr key={c.id} className="border-b border-border/50 hover:bg-secondary/30">
                           <td className="px-3 py-2 font-medium">{c.name}</td>
                           <td className="px-3 py-2">
-                            <div className="flex gap-1">
+                            <div className="flex gap-1 flex-wrap">
                               {channels.map((ch) => (
                                 <Badge key={ch} variant="outline" className="text-[10px] capitalize">{ch}</Badge>
                               ))}
                             </div>
                           </td>
                           <td className="px-3 py-2">
-                            <Badge variant="outline" className={`text-xs capitalize ${c.status === "active" ? "text-green-400 border-green-500/30" : c.status === "paused" ? "text-orange-400 border-orange-500/30" : "text-muted-foreground"}`}>
-                              {c.status}
-                            </Badge>
+                            <Badge variant="outline" className={`text-xs capitalize ${statusColors[c.status] ?? ""}`}>{c.status}</Badge>
                           </td>
                           <td className="px-3 py-2 text-muted-foreground">{c.totalContacts ?? 0}</td>
                           <td className="px-3 py-2 text-muted-foreground">{c.sentCount ?? 0}</td>
                           <td className="px-3 py-2 text-muted-foreground">{c.responseCount ?? 0}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{c.scheduledCount ?? 0}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{c.showCount ?? 0}</td>
                           <td className="px-3 py-2">
                             <span className={`font-medium ${responseRate >= 30 ? "text-green-400" : responseRate >= 15 ? "text-orange-400" : "text-red-400"}`}>{responseRate}%</span>
                           </td>
@@ -200,96 +272,114 @@ export default function Admin() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Activity className="w-4 h-4 text-primary" /> Activity Logs
+                <span className="ml-auto text-xs text-muted-foreground font-normal">{logs?.length ?? 0} entries</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-1 max-h-[500px] overflow-y-auto">
-                {(logs ?? []).map((log) => (
-                  <div key={log.id} className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-secondary/30 transition-colors">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium capitalize">{log.action} {log.entityType}</p>
-                      {log.description && <p className="text-xs text-muted-foreground truncate">{log.description}</p>}
+                {(logs ?? []).map((log) => {
+                  const actionColors: Record<string, string> = {
+                    created: "bg-green-500",
+                    updated: "bg-blue-500",
+                    deleted: "bg-red-500",
+                    role_updated: "bg-purple-500",
+                    config_updated: "bg-orange-500",
+                    verified: "bg-emerald-500",
+                    called: "bg-indigo-500",
+                    sent: "bg-cyan-500",
+                  };
+                  const dotColor = actionColors[log.action] ?? "bg-primary";
+                  return (
+                    <div key={log.id} className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-secondary/30 transition-colors">
+                      <div className={`w-1.5 h-1.5 rounded-full ${dotColor} mt-1.5 flex-shrink-0`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium capitalize">
+                          <span className="text-foreground">{log.action.replace(/_/g, " ")}</span>
+                          <span className="text-muted-foreground"> · {log.entityType}</span>
+                        </p>
+                        {log.description && <p className="text-xs text-muted-foreground truncate">{log.description}</p>}
+                      </div>
+                      <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                        {new Date(log.createdAt).toLocaleString()}
+                      </span>
                     </div>
-                    <span className="text-[10px] text-muted-foreground flex-shrink-0">
-                      {new Date(log.createdAt).toLocaleString()}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
                 {!logs?.length && (
-                  <div className="text-center py-8 text-muted-foreground text-sm">No activity logs</div>
+                  <div className="text-center py-8 text-muted-foreground text-sm">No activity logs yet</div>
                 )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* System Config Tab */}
+        {/* System Config Tab — fully editable, saves to DB */}
         <TabsContent value="config" className="mt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              {
-                title: "AI Voice Settings",
-                icon: Settings,
-                items: [
-                  { label: "Voice Model", value: "Neural TTS v3" },
-                  { label: "Default Language", value: "English (US)" },
-                  { label: "Call Recording", value: "Enabled" },
-                  { label: "Max Concurrent Calls", value: "50" },
-                ],
-              },
-              {
-                title: "Outreach Limits",
-                icon: AlertTriangle,
-                items: [
-                  { label: "Daily SMS Limit", value: "500/user" },
-                  { label: "Daily Email Limit", value: "1,000/user" },
-                  { label: "Daily Call Limit", value: "200/user" },
-                  { label: "Rate Limiting", value: "Active" },
-                ],
-              },
-              {
-                title: "Integrations",
-                icon: Database,
-                items: [
-                  { label: "Twilio (Voice/SMS)", value: "Connected" },
-                  { label: "SendGrid (Email)", value: "Connected" },
-                  { label: "LinkedIn API", value: "Pending" },
-                  { label: "CRM Webhook", value: "Not configured" },
-                ],
-              },
-              {
-                title: "Security",
-                icon: Shield,
-                items: [
-                  { label: "OAuth Provider", value: "Manus Auth" },
-                  { label: "Session Timeout", value: "24 hours" },
-                  { label: "2FA", value: "Optional" },
-                  { label: "Data Encryption", value: "AES-256" },
-                ],
-              },
-            ].map(({ title, icon: Icon, items }) => (
-              <Card key={title} className="bg-card border-border">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Icon className="w-4 h-4 text-primary" /> {title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {items.map(({ label, value }) => (
-                      <div key={label} className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">{label}</span>
-                        <span className={`font-medium text-xs ${value === "Connected" || value === "Enabled" || value === "Active" ? "text-green-400" : value === "Pending" || value === "Optional" ? "text-orange-400" : value === "Not configured" ? "text-red-400" : ""}`}>
-                          {value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            {Object.entries(configByCategory).map(([category, items]) => {
+              const Icon = CATEGORY_ICONS[category] ?? Settings;
+              return (
+                <Card key={category} className="bg-card border-border">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Icon className="w-4 h-4 text-primary" /> {CATEGORY_LABELS[category] ?? category}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {items.map(({ key, label }) => {
+                        const currentValue = configMap[key] ?? "";
+                        const isEditing = editingKey === key;
+                        return (
+                          <div key={key} className="flex items-center justify-between gap-2">
+                            <Label className="text-xs text-muted-foreground flex-shrink-0 w-40">{label}</Label>
+                            {isEditing ? (
+                              <div className="flex items-center gap-1 flex-1">
+                                <Input
+                                  className="h-7 text-xs bg-secondary border-border flex-1"
+                                  value={editValue}
+                                  onChange={(e) => setEditValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") setConfigMutation.mutate({ key, value: editValue, category });
+                                    if (e.key === "Escape") setEditingKey(null);
+                                  }}
+                                  autoFocus
+                                />
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-green-400 hover:text-green-300"
+                                  onClick={() => setConfigMutation.mutate({ key, value: editValue, category })}>
+                                  <Save className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground"
+                                  onClick={() => setEditingKey(null)}>
+                                  <X className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 flex-1 justify-end">
+                                <span className={`text-xs font-medium ${getStatusColor(currentValue)}`}>
+                                  {currentValue.replace(/_/g, " ")}
+                                </span>
+                                {(savedConfig ?? []).find((c) => c.key === key) && (
+                                  <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0" />
+                                )}
+                                <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                  onClick={() => { setEditingKey(key); setEditValue(currentValue); }}>
+                                  <Pencil className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
+          <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
+            <CheckCircle className="w-3 h-3 text-green-400" /> Values with a green checkmark are saved to the database. Click the pencil icon to edit any setting.
+          </p>
         </TabsContent>
       </Tabs>
     </div>

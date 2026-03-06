@@ -237,3 +237,13 @@ export const activityLogs = mysqlTable("activity_logs", {
 });
 
 export type ActivityLog = typeof activityLogs.$inferSelect;
+
+// ─── System Config ────────────────────────────────────────────────────────────
+export const systemConfig = mysqlTable("system_config", {
+  id: int("id").autoincrement().primaryKey(),
+  key: varchar("key", { length: 100 }).notNull().unique(),
+  value: text("value").notNull(),
+  category: varchar("category", { length: 50 }).notNull().default("general"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type SystemConfig = typeof systemConfig.$inferSelect;

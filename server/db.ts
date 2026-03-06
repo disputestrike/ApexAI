@@ -10,6 +10,7 @@ import {
   leads,
   messages,
   onboardings,
+  systemConfig,
   templates,
   testimonials,
   users,
@@ -363,4 +364,18 @@ export async function getActivityLogs(limit = 50) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(activityLogs).orderBy(desc(activityLogs.createdAt)).limit(limit);
+}
+
+// ─── System Config ────────────────────────────────────────────────────────────
+export async function getSystemConfig() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(systemConfig).orderBy(systemConfig.category);
+}
+
+export async function setSystemConfig(key: string, value: string, category = "general") {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(systemConfig).values({ key, value, category })
+    .onDuplicateKeyUpdate({ set: { value, category } });
 }

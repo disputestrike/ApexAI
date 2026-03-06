@@ -247,9 +247,79 @@ const messagesRouter = router({
   getCallRecordings: protectedProcedure
     .input(z.object({ campaignId: z.number().optional(), leadId: z.number().optional(), limit: z.number().optional() }).optional())
     .query(async ({ input }) => db.getCallRecordings(input ?? {})),
+  bulkSend: protectedProcedure
+    .input(z.object({
+      campaignId: z.number(),
+      channel: z.enum(["sms", "email", "social"]),
+      subject: z.string().optional(),
+      body: z.string(),
+      templateId: z.number().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const contacts = await db.getCampaignContacts(input.campaignId);
+      if (!contacts.length) throw new TRPCError({ code: "BAD_REQUEST", message: "No contacts assigned to this campaign" });
+      let sent = 0;
+      for (const contact of contacts) {
+        const lead = await db.getLeadById(contact.leadId);
+        if (!lead) continue;
+        // Personalize body with lead data
+        const personalizedBody = input.body
+          .replace(/\{\{firstName\}\}/g, lead.firstName ?? "")
+          .replace(/\{\{lastName\}\}/g, lead.lastName ?? "")
+          .replace(/\{\{company\}\}/g, lead.company ?? "")
+          .replace(/\{\{industry\}\}/g, lead.industry ?? "");
+        const personalizedSubject = input.subject
+          ? input.subject.replace(/\{\{firstName\}\}/g, lead.firstName ?? "").replace(/\{\{company\}\}/g, lead.company ?? "")
+          : undefined;
+        await db.createMessage({
+          leadId: contact.leadId,
+          campaignId: input.campaignId,
+          channel: input.channel,
+          subject: personalizedSubject,
+          body: personalizedBody,
+          templateId: input.templateId,
+          status: "sent",
+          sentAt: new Date(),
+          deliveredAt: new Date(),
+        });
+        sent++;
+      }
+      await db.updateCampaign(input.campaignId, { sentCount: db_sql_increment("sentCount") as unknown as number });
+      await db.logActivity({ userId: ctx.user.id, entityType: "campaign", entityId: input.campaignId, action: "bulk_sent", description: `Bulk sent ${input.channel} to ${sent} contacts` });
+      return { success: true, sent };
+    }),
+  aiCompose: protectedProcedure
+    .input(z.object({
+      channel: z.enum(["sms", "email", "social"]),
+      prompt: z.string(),
+      industry: z.string().optional(),
+      leadName: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const channelGuide = input.channel === "sms"
+        ? "Write a concise SMS under 160 characters. No subject needed."
+        : input.channel === "email"
+        ? "Write a professional email with a subject line and body. Format as: SUBJECT: ...\nBODY: ..."
+        : "Write a friendly social media outreach message.";
+      const response = await invokeLLM({
+        messages: [
+          { role: "system", content: `You are an expert sales copywriter specializing in outbound ${input.channel} messages. ${channelGuide} Make it personalized, compelling, and action-oriented. Industry: ${input.industry ?? "general business"}.` },
+          { role: "user", content: input.prompt },
+        ],
+      });
+      const content = response.choices[0].message.content as string;
+      if (input.channel === "email" && content.includes("SUBJECT:")) {
+        const lines = content.split("\n");
+        const subjectLine = lines.find((l: string) => l.startsWith("SUBJECT:"));
+        const bodyStart = lines.findIndex((l: string) => l.startsWith("BODY:"));
+        const subject = subjectLine ? subjectLine.replace("SUBJECT:", "").trim() : "";
+        const body = bodyStart >= 0 ? lines.slice(bodyStart + 1).join("\n").trim() : content;
+        return { subject, body };
+      }
+      return { subject: "", body: content };
+    }),
 });
-
-// ─── Voice AI Router ──────────────────────────────────────────────────────────
+// ─── Voice AI Router ───────────────────────────────────────────────────────────
 const voiceAIRouter = router({
   initiateCall: protectedProcedure
     .input(z.object({
@@ -556,6 +626,14 @@ const adminRouter = router({
       totalLeads: leads.total,
     };
   }),
+  getConfig: adminProcedure.query(async () => db.getSystemConfig()),
+  setConfig: adminProcedure
+    .input(z.object({ key: z.string(), value: z.string(), category: z.string().optional() }))
+    .mutation(async ({ input, ctx }) => {
+      await db.setSystemConfig(input.key, input.value, input.category);
+      await db.logActivity({ userId: ctx.user.id, entityType: "config", action: "config_updated", description: `${input.key} set to ${input.value}` });
+      return { success: true };
+    }),
 });
 
 // ─── App Router ───────────────────────────────────────────────────────────────
