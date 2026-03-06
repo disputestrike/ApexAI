@@ -16,6 +16,19 @@ RUN pnpm install --frozen-lockfile
 # Copy source code
 COPY . .
 
+# Accept VITE_* vars as build args so Vite can embed them in the frontend bundle
+# Set these as Railway Variables on the ApexAI service — they are used at BUILD time
+ARG VITE_OAUTH_PORTAL_URL
+ARG VITE_APP_ID
+ARG VITE_FRONTEND_FORGE_API_KEY
+ARG VITE_FRONTEND_FORGE_API_URL
+
+# Expose as ENV so Vite picks them up during pnpm build
+ENV VITE_OAUTH_PORTAL_URL=$VITE_OAUTH_PORTAL_URL
+ENV VITE_APP_ID=$VITE_APP_ID
+ENV VITE_FRONTEND_FORGE_API_KEY=$VITE_FRONTEND_FORGE_API_KEY
+ENV VITE_FRONTEND_FORGE_API_URL=$VITE_FRONTEND_FORGE_API_URL
+
 # Build the application:
 #   - Vite outputs frontend to dist/public/
 #   - esbuild outputs server bundle to dist/index.js
