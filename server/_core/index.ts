@@ -30,17 +30,23 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-  // Health check endpoint for Railway and load balancers
+  // Health check endpoint — must respond immediately, before any DB or auth checks
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString(), env: process.env.NODE_ENV });
+    res.status(200).json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      env: process.env.NODE_ENV,
+    });
   });
 
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+
   // tRPC API
   app.use(
     "/api/trpc",
@@ -49,24 +55,33 @@ async function startServer() {
       createContext,
     })
   );
-  // development mode uses Vite, production mode uses static files
+
+  // Development mode uses Vite HMR, production serves pre-built static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
 
+  // In production (Railway), PORT is injected by the platform — bind directly.
+  // In development, scan for an available port starting from 3000.
   const preferredPort = parseInt(process.env.PORT || "3000");
-  const port = await findAvailablePort(preferredPort);
 
-  if (port !== preferredPort) {
-    console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
+  if (process.env.NODE_ENV === "production") {
+    // Railway: bind directly to the assigned PORT, no scanning
+    server.listen(preferredPort, "0.0.0.0", () => {
+      console.log(`Server running on http://0.0.0.0:${preferredPort}/`);
+    });
+  } else {
+    // Development: find an available port
+    const port = await findAvailablePort(preferredPort);
+    if (port !== preferredPort) {
+      console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
+    }
+    server.listen(port, "0.0.0.0", () => {
+      console.log(`Server running on http://0.0.0.0:${port}/`);
+    });
   }
-
-  // Bind to 0.0.0.0 so Railway's proxy can reach the container
-  server.listen(port, "0.0.0.0", () => {
-    console.log(`Server running on http://0.0.0.0:${port}/`);
-  });
 }
 
 startServer().catch(console.error);
