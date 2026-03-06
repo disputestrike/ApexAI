@@ -179,6 +179,13 @@ export async function addContactToCampaign(campaignId: number, leadId: number) {
   await db.update(campaigns).set({ totalContacts: sql`totalContacts + 1` }).where(eq(campaigns.id, campaignId));
 }
 
+export async function removeContactFromCampaign(campaignId: number, leadId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(campaignContacts).where(and(eq(campaignContacts.campaignId, campaignId), eq(campaignContacts.leadId, leadId)));
+  await db.update(campaigns).set({ totalContacts: sql`GREATEST(totalContacts - 1, 0)` }).where(eq(campaigns.id, campaignId));
+}
+
 export async function updateCampaignContactStatus(id: number, status: typeof campaignContacts.$inferInsert["status"]) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

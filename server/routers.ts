@@ -6,6 +6,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import * as db from "./db";
+import { sql } from "drizzle-orm";
 
 // ─── Admin guard ──────────────────────────────────────────────────────────────
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -29,8 +30,8 @@ const leadsRouter = router({
 
   create: protectedProcedure
     .input(z.object({
-      firstName: z.string().min(1),
-      lastName: z.string().min(1),
+      firstName: z.string().min(1).max(100),
+      lastName: z.string().min(1).max(100),
       email: z.string().email().optional(),
       phone: z.string().optional(),
       company: z.string().optional(),
@@ -204,6 +205,12 @@ const campaignsRouter = router({
     return { success: true };
   }),
 
+  removeContact: protectedProcedure.input(z.object({ campaignId: z.number(), leadId: z.number() })).mutation(async ({ input, ctx }) => {
+    await db.removeContactFromCampaign(input.campaignId, input.leadId);
+    await db.logActivity({ userId: ctx.user.id, entityType: "campaign", entityId: input.campaignId, action: "contact_removed" });
+    return { success: true };
+  }),
+
   launch: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
     const campaign = await db.getCampaignById(input.id);
     if (!campaign) throw new TRPCError({ code: "NOT_FOUND" });
@@ -241,6 +248,14 @@ const messagesRouter = router({
         await db.updateCampaign(input.campaignId, { sentCount: db_sql_increment("sentCount") as unknown as number });
       }
       await db.logActivity({ userId: ctx.user.id, entityType: "message", action: "sent", description: `Sent ${input.channel} to lead ${input.leadId}` });
+      return { success: true };
+    }),
+
+  updateStatus: protectedProcedure
+    .input(z.object({ id: z.number(), status: z.enum(["queued", "sent", "delivered", "read", "replied", "failed", "bounced"]) }))
+    .mutation(async ({ input, ctx }) => {
+      await db.updateMessageStatus(input.id, input.status);
+      await db.logActivity({ userId: ctx.user.id, entityType: "message", entityId: input.id, action: "status_updated", description: `Updated message status to ${input.status}` });
       return { success: true };
     }),
 
@@ -329,7 +344,8 @@ const voiceAIRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const lead = await db.getLeadById(input.leadId);
-      if (!lead) throw new TRPCError({ code: "NOT_FOUND" });
+      if (!lead) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found" });
+      if (!lead.phone) throw new TRPCError({ code: "BAD_REQUEST", message: "Lead does not have a phone number" });
 
       // Generate AI conversation script
       const scriptResponse = await invokeLLM({
@@ -675,7 +691,7 @@ function calculateLeadScore(lead: { email?: string; phone?: string; company?: st
   return Math.min(100, score);
 }
 
-// Workaround for SQL increment without importing sql directly
+// SQL increment helper using drizzle sql template
 function db_sql_increment(field: string) {
-  return { [field]: field } as unknown;
+  return sql`${sql.raw(field)} + 1`;
 }

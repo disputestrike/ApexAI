@@ -107,7 +107,7 @@ export default function Home() {
               Launch Your Campaign
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
-            <Button size="lg" variant="outline" className="text-base px-8 h-12">
+            <Button size="lg" variant="outline" className="text-base px-8 h-12" onClick={() => { import('sonner').then(m => m.toast.info('Demo video coming soon!')); }}>
               Watch Demo
             </Button>
           </div>
