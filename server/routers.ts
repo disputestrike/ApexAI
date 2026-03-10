@@ -117,13 +117,16 @@ const leadsRouter = router({
   importBulk: protectedProcedure
     .input(z.array(z.object({ firstName: z.string(), lastName: z.string(), email: z.string().optional(), phone: z.string().optional(), company: z.string().optional(), industry: z.string().optional(), title: z.string().optional() })))
     .mutation(async ({ input, ctx }) => {
-      let created = 0;
-      for (const lead of input) {
+      // Build all lead records in memory first (no DB calls per-lead)
+      const leadsToCreate = input.map((lead) => {
         const score = calculateLeadScore(lead);
-        const segment = score >= 70 ? "hot" : score >= 40 ? "warm" : "cold";
-        await db.createLead({ ...lead, score, segment });
-        created++;
-      }
+        const segment: "hot" | "warm" | "cold" = score >= 70 ? "hot" : score >= 40 ? "warm" : "cold";
+        return { ...lead, score, segment };
+      });
+
+      // Batch-insert all leads in a single query
+      await db.createManyLeads(leadsToCreate);
+      const created = leadsToCreate.length;
       await db.logActivity({ userId: ctx.user.id, entityType: "lead", action: "bulk_import", description: `Imported ${created} leads` });
       return { success: true, created };
     }),
@@ -273,9 +276,16 @@ const messagesRouter = router({
     .mutation(async ({ input, ctx }) => {
       const contacts = await db.getCampaignContacts(input.campaignId);
       if (!contacts.length) throw new TRPCError({ code: "BAD_REQUEST", message: "No contacts assigned to this campaign" });
-      let sent = 0;
+
+      // Batch-fetch all leads in a single query instead of one per contact (N+1 fix)
+      const leadIds = contacts.map((c) => c.leadId);
+      const leadList = await db.getLeadsByIds(leadIds);
+      const leadsMap = new Map(leadList.map((l) => [l.id, l]));
+
+      const now = new Date();
+      const messagesToCreate: Parameters<typeof db.createManyMessages>[0] = [];
       for (const contact of contacts) {
-        const lead = await db.getLeadById(contact.leadId);
+        const lead = leadsMap.get(contact.leadId);
         if (!lead) continue;
         // Personalize body with lead data
         const personalizedBody = input.body
@@ -286,7 +296,7 @@ const messagesRouter = router({
         const personalizedSubject = input.subject
           ? input.subject.replace(/\{\{firstName\}\}/g, lead.firstName ?? "").replace(/\{\{company\}\}/g, lead.company ?? "")
           : undefined;
-        await db.createMessage({
+        messagesToCreate.push({
           leadId: contact.leadId,
           campaignId: input.campaignId,
           channel: input.channel,
@@ -294,12 +304,17 @@ const messagesRouter = router({
           body: personalizedBody,
           templateId: input.templateId,
           status: "sent",
-          sentAt: new Date(),
-          deliveredAt: new Date(),
+          sentAt: now,
+          deliveredAt: now,
         });
-        sent++;
       }
-      await db.updateCampaign(input.campaignId, { sentCount: db_sql_increment("sentCount") as unknown as number });
+
+      // Batch-insert all messages in a single query
+      const sent = messagesToCreate.length;
+      if (sent > 0) await db.createManyMessages(messagesToCreate);
+
+      // Update sentCount once with the actual number sent (not incrementing per message)
+      await db.updateCampaign(input.campaignId, { sentCount: sql`sentCount + ${sent}` as unknown as number });
       await db.logActivity({ userId: ctx.user.id, entityType: "campaign", entityId: input.campaignId, action: "bulk_sent", description: `Bulk sent ${input.channel} to ${sent} contacts` });
       return { success: true, sent };
     }),
