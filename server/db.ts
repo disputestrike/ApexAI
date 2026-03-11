@@ -1,4 +1,4 @@
-import { and, desc, eq, like, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser,
@@ -107,11 +107,24 @@ export async function getLeadById(id: number) {
   return result[0];
 }
 
+export async function getLeadsByIds(ids: number[]) {
+  if (ids.length === 0) return [];
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(leads).where(inArray(leads.id, ids));
+}
+
 export async function createLead(data: typeof leads.$inferInsert) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(leads).values(data);
   return result[0];
+}
+
+export async function createManyLeads(data: (typeof leads.$inferInsert)[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(leads).values(data);
 }
 
 export async function updateLead(id: number, data: Partial<typeof leads.$inferInsert>) {
@@ -166,10 +179,16 @@ export async function deleteCampaign(id: number) {
   await db.delete(campaigns).where(eq(campaigns.id, id));
 }
 
-export async function getCampaignContacts(campaignId: number) {
+export async function getCampaignContacts(campaignId: number, opts?: { limit?: number; offset?: number }) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(campaignContacts).where(eq(campaignContacts.campaignId, campaignId)).orderBy(desc(campaignContacts.createdAt));
+  const query = db.select().from(campaignContacts)
+    .where(eq(campaignContacts.campaignId, campaignId))
+    .orderBy(desc(campaignContacts.createdAt));
+  if (opts?.limit !== undefined) {
+    return await query.limit(opts.limit).offset(opts?.offset ?? 0);
+  }
+  return await query;
 }
 
 export async function addContactToCampaign(campaignId: number, leadId: number) {
@@ -209,6 +228,12 @@ export async function createMessage(data: typeof messages.$inferInsert) {
   if (!db) throw new Error("Database not available");
   const result = await db.insert(messages).values(data);
   return result[0];
+}
+
+export async function createManyMessages(data: (typeof messages.$inferInsert)[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(messages).values(data);
 }
 
 export async function updateMessageStatus(id: number, status: typeof messages.$inferInsert["status"], extra?: Record<string, Date>) {

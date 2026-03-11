@@ -1,5 +1,6 @@
 import {
   int,
+  index,
   mysqlEnum,
   mysqlTable,
   text,
@@ -51,7 +52,13 @@ export const leads = mysqlTable("leads", {
   customFields: text("customFields"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => [
+  index("idx_leads_score").on(t.score),
+  index("idx_leads_segment").on(t.segment),
+  index("idx_leads_status").on(t.status),
+  index("idx_leads_verification").on(t.verificationStatus),
+  index("idx_leads_created_at").on(t.createdAt),
+]);
 
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = typeof leads.$inferInsert;
@@ -96,7 +103,10 @@ export const campaigns = mysqlTable("campaigns", {
   createdBy: int("createdBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => [
+  index("idx_campaigns_status").on(t.status),
+  index("idx_campaigns_created_at").on(t.createdAt),
+]);
 
 export type Campaign = typeof campaigns.$inferSelect;
 export type InsertCampaign = typeof campaigns.$inferInsert;
@@ -114,7 +124,10 @@ export const campaignContacts = mysqlTable("campaign_contacts", {
   notes: text("notes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => [
+  index("idx_campaign_contacts_campaign_id").on(t.campaignId),
+  index("idx_campaign_contacts_lead_id").on(t.leadId),
+]);
 
 export type CampaignContact = typeof campaignContacts.$inferSelect;
 
@@ -135,7 +148,11 @@ export const messages = mysqlTable("messages", {
   repliedAt: timestamp("repliedAt"),
   metadata: text("metadata"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_messages_campaign_id").on(t.campaignId),
+  index("idx_messages_lead_id").on(t.leadId),
+  index("idx_messages_created_at").on(t.createdAt),
+]);
 
 export type Message = typeof messages.$inferSelect;
 
@@ -219,7 +236,9 @@ export const onboardings = mysqlTable("onboardings", {
   specialistName: varchar("specialistName", { length: 200 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => [
+  index("idx_onboardings_user_id").on(t.userId),
+]);
 
 export type Onboarding = typeof onboardings.$inferSelect;
 export type InsertOnboarding = typeof onboardings.$inferInsert;
@@ -234,7 +253,10 @@ export const activityLogs = mysqlTable("activity_logs", {
   description: text("description"),
   metadata: text("metadata"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_activity_logs_user_id").on(t.userId),
+  index("idx_activity_logs_entity").on(t.entityType, t.entityId),
+]);
 
 export type ActivityLog = typeof activityLogs.$inferSelect;
 
