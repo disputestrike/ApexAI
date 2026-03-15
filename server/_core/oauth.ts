@@ -6,12 +6,26 @@ import { ENV } from "./env";
 import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
 
-// Initialize Google OAuth client
-const googleClient = new OAuth2Client(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  `${process.env.RAILWAY_PUBLIC_DOMAIN ? 'https://' + process.env.RAILWAY_PUBLIC_DOMAIN : 'http://localhost:3000'}/api/auth/google/callback`
-);
+// Lazy-initialize Google OAuth client (only when needed)
+let googleClient: OAuth2Client | null = null;
+
+function getGoogleClient(): OAuth2Client {
+  if (!googleClient) {
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      console.warn("[Google Auth] GOOGLE_CLIENT_ID not configured - Google Auth will not work");
+    }
+    if (!process.env.GOOGLE_CLIENT_SECRET) {
+      console.warn("[Google Auth] GOOGLE_CLIENT_SECRET not configured - Google Auth will not work");
+    }
+
+    googleClient = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID || "",
+      process.env.GOOGLE_CLIENT_SECRET || "",
+      `${process.env.RAILWAY_PUBLIC_DOMAIN ? 'https://' + process.env.RAILWAY_PUBLIC_DOMAIN : 'http://localhost:3000'}/api/auth/google/callback`
+    );
+  }
+  return googleClient;
+}
 
 export function registerOAuthRoutes(app: Express) {
   // Google OAuth callback endpoint
@@ -24,8 +38,16 @@ export function registerOAuthRoutes(app: Express) {
     }
 
     try {
+      // Get Google client (lazy-initialized)
+      const client = getGoogleClient();
+
+      if (!process.env.GOOGLE_CLIENT_ID) {
+        res.status(500).json({ error: "Google authentication not configured" });
+        return;
+      }
+
       // Verify the Google ID token
-      const ticket = await googleClient.verifyIdToken({
+      const ticket = await client.verifyIdToken({
         idToken: credential,
         audience: process.env.GOOGLE_CLIENT_ID,
       });
