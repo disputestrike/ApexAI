@@ -2,52 +2,94 @@ import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import type { Express, Request, Response } from "express";
 import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
-import { sdk } from "./sdk";
+import { ENV } from "./env";
+import { OAuth2Client } from "google-auth-library";
+import jwt from "jsonwebtoken";
 
-function getQueryParam(req: Request, key: string): string | undefined {
-  const value = req.query[key];
-  return typeof value === "string" ? value : undefined;
-}
+// Initialize Google OAuth client
+const googleClient = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  `${process.env.RAILWAY_PUBLIC_DOMAIN ? 'https://' + process.env.RAILWAY_PUBLIC_DOMAIN : 'http://localhost:3000'}/api/auth/google/callback`
+);
 
 export function registerOAuthRoutes(app: Express) {
-  app.get("/api/oauth/callback", async (req: Request, res: Response) => {
-    const code = getQueryParam(req, "code");
-    const state = getQueryParam(req, "state");
+  // Google OAuth callback endpoint
+  app.post("/api/auth/google/callback", async (req: Request, res: Response) => {
+    const { credential } = req.body;
 
-    if (!code || !state) {
-      res.status(400).json({ error: "code and state are required" });
+    if (!credential) {
+      res.status(400).json({ error: "credential is required" });
       return;
     }
 
     try {
-      const tokenResponse = await sdk.exchangeCodeForToken(code, state);
-      const userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
+      // Verify the Google ID token
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
 
-      if (!userInfo.openId) {
-        res.status(400).json({ error: "openId missing from user info" });
+      const payload = ticket.getPayload();
+      if (!payload) {
+        res.status(400).json({ error: "Invalid token payload" });
         return;
       }
 
+      const { sub: googleId, email, name, picture } = payload;
+
+      if (!googleId || !email) {
+        res.status(400).json({ error: "Missing required user info from Google" });
+        return;
+      }
+
+      // Upsert user in database
       await db.upsertUser({
-        openId: userInfo.openId,
-        name: userInfo.name || null,
-        email: userInfo.email ?? null,
-        loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
+        openId: googleId,
+        name: name || null,
+        email: email || null,
+        loginMethod: "google",
         lastSignedIn: new Date(),
       });
 
-      const sessionToken = await sdk.createSessionToken(userInfo.openId, {
-        name: userInfo.name || "",
-        expiresInMs: ONE_YEAR_MS,
-      });
+      // Create JWT session token
+      const sessionToken = jwt.sign(
+        {
+          googleId,
+          email,
+          name,
+          picture,
+        },
+        ENV.cookieSecret,
+        { expiresIn: "1y" }
+      );
 
       const cookieOptions = getSessionCookieOptions(req);
-      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      res.cookie(COOKIE_NAME, sessionToken, { 
+        ...cookieOptions, 
+        maxAge: ONE_YEAR_MS 
+      });
 
-      res.redirect(302, "/");
+      // Return success - frontend will redirect
+      res.json({ success: true });
     } catch (error) {
-      console.error("[OAuth] Callback failed", error);
-      res.status(500).json({ error: "OAuth callback failed" });
+      console.error("[Google Auth] Callback failed", error);
+      res.status(401).json({ error: "Google authentication failed" });
     }
+  });
+
+  // Optional: Google login initiation endpoint
+  app.get("/api/auth/google/login", (req: Request, res: Response) => {
+    const scopes = [
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile",
+    ];
+
+    const authUrl = googleClient.generateAuthUrl({
+      access_type: "offline",
+      scope: scopes,
+    });
+
+    res.json({ url: authUrl });
   });
 }

@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-
+import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -8,6 +7,7 @@ import {
   DialogFooter,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useState } from "react";
 
 interface ManusDialogProps {
   title?: string;
@@ -27,12 +27,8 @@ export function ManusDialog({
   onClose,
 }: ManusDialogProps) {
   const [internalOpen, setInternalOpen] = useState(open);
-
-  useEffect(() => {
-    if (!onOpenChange) {
-      setInternalOpen(open);
-    }
-  }, [open, onOpenChange]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (onOpenChange) {
@@ -44,6 +40,40 @@ export function ManusDialog({
     if (!nextOpen) {
       onClose?.();
     }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/auth/google/callback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          credential: credentialResponse.credential,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Authentication failed");
+      }
+
+      // Success - reload to get authenticated state
+      onLogin();
+      window.location.reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
+      console.error("[Google Auth] Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError("Google login failed. Please try again.");
   };
 
   return (
@@ -70,18 +100,27 @@ export function ManusDialog({
             </DialogTitle>
           ) : null}
           <DialogDescription className="text-sm text-[#858481] leading-5 tracking-[-0.154px]">
-            Please login with Manus to continue
+            Please login with Google to continue
           </DialogDescription>
         </div>
 
         <DialogFooter className="px-5 py-5">
-          {/* Login button */}
-          <Button
-            onClick={onLogin}
-            className="w-full h-10 bg-[#1a1a19] hover:bg-[#1a1a19]/90 text-white rounded-[10px] text-sm font-medium leading-5 tracking-[-0.154px]"
-          >
-            Login with Manus
-          </Button>
+          {error && (
+            <div className="w-full mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
+          {/* Google Login Button */}
+          <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              theme="filled_blue"
+              size="large"
+              width="100%"
+            />
+          </GoogleOAuthProvider>
         </DialogFooter>
       </DialogContent>
     </Dialog>
